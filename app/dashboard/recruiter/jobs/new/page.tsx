@@ -2,24 +2,10 @@
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import type { JobFormData } from "@/lib/types/jobs"
 import { createJob } from "@/lib/actions/jobs"
 import Link from "next/link"
 import { useState, useEffect, type FormEvent } from "react"
-
-export type JobFormData = {
-  title: string
-  category: string
-  type: string
-  location: string
-  remote: boolean
-  salaryMin: string
-  salaryMax: string
-  currency: string
-  deadline: string
-  responsibilities: string
-  requirements: string
-  benefits: string
-}
 
 function getTextField(formData: FormData, name: string) {
   const value = formData.get(name)
