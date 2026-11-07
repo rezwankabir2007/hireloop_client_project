@@ -3,22 +3,24 @@
 import Image from "next/image"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
-import { authClient } from "@/lib/auth-client"
+import { authClient, useSession } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import logo from "@/app/images/logo.png"
 
-const navigationLinks = [
-  { label: "Browse Jobs", href: "#jobs" },
-  { label: "Companies", href: "#companies" },
-  { label: "Pricing", href: "/pricing" },
-]
-
 export default function Navbar() {
   const router = useRouter()
-  // ক্লায়েন্ট সাইডে সেশন পাওয়ার জন্য authClient.useSession() ব্যবহার করা হলো
-  const { data: session, isPending } = authClient.useSession()
+  // ক্লায়েন্ট সাইডে সেশন পাওয়ার জন্য useSession ব্যবহার করা হলো
+  const { data: session, isPending } = useSession()
+
+  // কম্পোনেন্টের ভেতরে নেভিগেশন লিংক ডিফাইন করা হয়েছে যাতে সেশন পাওয়া যায়
+  const navigationLinks = [
+    { label: "Browse Jobs", href: "#jobs" },
+    { label: "Companies", href: "#companies" },
+    { label: "Pricing", href: "/pricing" },
+    { label: "Dashboard", href: `/dashboard/${session?.user?.role || 'seeker'}` },
+  ] as const
 
   const handleSignOut = async () => {
     await authClient.signOut({
@@ -55,7 +57,7 @@ export default function Navbar() {
         ))}
       </nav>
 
-      {/* সেশন লোডিং শেষ হলে লগইন করা থাকলে ইউজার ও সাইন-আউট বাটন দেখাবে, না থাকলে Sign In / Sign Up দেখাবে */}
+      {/* সেশন লোডিং শেষ হলে লগইন করা থাকলে ইউজার ও সাইন-আউট বাটন দেখাবে */}
       <div className="hidden items-center gap-4 md:flex">
         {isPending ? (
           <span className="text-xs text-white/50">Loading...</span>
