@@ -1,5 +1,6 @@
 import HeroSection from "@/components/homePage/HeroSection"
-import Navber from "@/components/homePage/Navber"
+import Footer from "@/components/homePage/Footer"
+import Navber from "@/components/homePage/Navbar"
 
 export default function Page() {
   return (
@@ -9,8 +10,8 @@ export default function Page() {
 
     <HeroSection/>
 
-       
       </div>
+      <Footer />
     </main>
   )
 }
