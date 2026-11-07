@@ -2,20 +2,29 @@
 
 import { AuthForm, AuthFormData } from "@/components/auth/auth-form"
 import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function SignInPage() {
+  const router = useRouter();
 
   const handleSignIn = async (data: AuthFormData) => {
     const { data: SignInResponse, error } = await authClient.signIn.email({
-      email: data.email as string, // এখানে data.name এর পরিবর্তে data.email হবে
+      email: data.email as string, 
       password: data.password, 
       rememberMe: true, 
       callbackURL: "/", 
     });
 
-    console.log('sign in response', SignInResponse, error);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Signed in successfully!");
+    router.push("/");
+    router.refresh();
   }
 
-  // এখানে onSubmit={handleSignIn} যোগ করা হয়েছে
   return <AuthForm mode="sign-in" onSubmit={handleSignIn} />
 }

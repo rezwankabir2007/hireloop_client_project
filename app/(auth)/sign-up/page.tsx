@@ -1,29 +1,40 @@
 "use client"
 
-import { AuthForm, AuthFormData } from "@/components/auth/auth-form"
-import { authClient } from "@/lib/auth-client";
-import { useRouter } from "next/navigation"; // রাউটার ইমপোর্ট করুন
+import { AuthForm, type AuthFormData } from "@/components/auth/auth-form"
+import { authClient } from "@/lib/auth-client"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 export default function SignUpPage() {
-  const router = useRouter(); // রাউটার হুক ইনিশিয়ালাইজ করুন
+  const router = useRouter()
 
   const handleSignUp = async (data: AuthFormData) => {
-    const { data: signUpResponse, error } = await authClient.signUp.email({
-      name: data.name as string,
+    if (!data.name || !data.requestedRole) {
+      toast.error("Please provide your name and account type.")
+      return
+    }
+
+    const { error } = await authClient.signUp.email({
+      name: data.name,
       email: data.email,
       password: data.password,
-      callbackURL: "/", 
-    });
+      requestedRole: data.requestedRole,
+      callbackURL: "/",
+    })
 
-    console.log("signup response", signUpResponse, error);
-
-    // যদি কোনো এরর না থাকে, তবে ম্যানুয়ালি হোম পেজে পাঠিয়ে দিন
-    if (!error) {
-      router.push("/");
-      router.refresh(); // ক্যাশ ক্লিয়ার করে সেশন আপডেট করতে সাহায্য করবে
-    } else {
-      console.error("Sign up failed:", error);
+    if (error) {
+      toast.error(error.message)
+      return
     }
+
+    if (data.requestedRole === "admin") {
+      toast.info("Account created. Your admin access request was recorded; admin privileges require approval.")
+    } else {
+      toast.success("Account created successfully!")
+    }
+
+    router.push("/")
+    router.refresh()
   }
 
   return <AuthForm mode="sign-up" onSubmit={handleSignUp} />

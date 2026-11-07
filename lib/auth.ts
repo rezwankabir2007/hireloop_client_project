@@ -7,16 +7,40 @@ const db = client.db('hrieloopprojectdb');
 
 
 export const auth = betterAuth({
-     
-     emailAndPassword: { 
-    enabled: true, 
+  emailAndPassword: {
+    enabled: true,
   },
-      socialProviders: {
-        google: { // [!code highlight]
-            clientId: process.env.GOOGLE_CLIENT_ID as string, // [!code highlight]
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET as string, // [!code highlight]
-        }, // [!code highlight]
+  user: {
+    additionalFields: {
+      role: {
+        type: ["seeker", "recruiter", "admin"],
+        input: false,
+        defaultValue: "seeker",
+      },
+      requestedRole: {
+        type: ["seeker", "recruiter", "admin"],
+        defaultValue: "seeker",
+      },
     },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => ({
+          data: {
+            ...user,
+            role: user.requestedRole === "recruiter" ? "recruiter" : "seeker",
+          },
+        }),
+      },
+    },
+  },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    },
+  },
   database: mongodbAdapter(db, {
     client,
   }),

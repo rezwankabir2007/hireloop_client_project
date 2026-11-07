@@ -9,44 +9,81 @@ import { Button } from "@/components/ui/button"
 
 import logo from "../../app/images/logo.png"
 
-// ডাটার টাইপ ডিফাইন করা হলো
+export type UserRole = "seeker" | "recruiter" | "admin"
+
 export type AuthFormData = {
   email: string
   password: string
   name?: string
+  requestedRole?: UserRole
 }
 
-// Props এ onSubmit যুক্ত করা হলো
 type AuthFormProps = {
   mode: "sign-in" | "sign-up"
-  onSubmit?: (data: AuthFormData) => void
+  onSubmit?: (data: AuthFormData) => Promise<string | void> | string | void
 }
 
 export function AuthForm({ mode, onSubmit }: AuthFormProps) {
   const isSignUp = mode === "sign-up"
   const [notice, setNotice] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const formData = new FormData(event.currentTarget)
-    const values = Object.fromEntries(formData.entries())
+    const email = formData.get("email")
+    const password = formData.get("password")
+    const name = formData.get("name")
+    const requestedRole = formData.get("requestedRole")
 
-    setNotice(
-      `${Object.keys(values).length} fields collected locally. Connect your authentication provider to continue.`,
-    )
-
-    // ডাটা সঠিকভাবে সাজানো হলো
-    const data: AuthFormData = {
-      email: values.email as string,
-      password: values.password as string, // স্পেলিং ঠিক করা হয়েছে (password)
-      ...(isSignUp && values.name ? { name: values.name as string } : {}),
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      (isSignUp && typeof name !== "string") ||
+      (isSignUp &&
+        requestedRole !== "seeker" &&
+        requestedRole !== "recruiter" &&
+        requestedRole !== "admin")
+    ) {
+      setNotice("Please complete all required fields.")
+      return
     }
 
-    console.log(`${mode} form data:`, data)
+    const data: AuthFormData = {
+      email,
+      password,
+      ...(isSignUp && typeof name === "string" ? { name } : {}),
+      ...(isSignUp && typeof requestedRole === "string"
+        ? { requestedRole: requestedRole as UserRole }
+        : {}),
+    }
 
-    // প্যারেন্ট কম্পোনেন্টে ডাটা পাঠানো হচ্ছে
-    onSubmit?.(data)
+    if (
+      isSignUp &&
+      password !== formData.get("confirmPassword")
+    ) {
+      setNotice("Your passwords do not match.")
+      return
+    }
+
+    setNotice("")
+    setIsSubmitting(true)
+
+    try {
+      const successMessage = await onSubmit?.(data)
+      if (successMessage) {
+        setNotice(successMessage)
+      }
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong. Please try again.",
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -128,6 +165,58 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
               </p>
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+                {isSignUp && (
+                  <fieldset className="space-y-2">
+                    <legend className="text-xs font-medium text-white/75">
+                      I&apos;m joining as
+                    </legend>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {[
+                        {
+                          value: "seeker",
+                          label: "Job seeker",
+                          description: "Find opportunities",
+                        },
+                        {
+                          value: "recruiter",
+                          label: "Recruiter",
+                          description: "Hire great talent",
+                        },
+                        {
+                          value: "admin",
+                          label: "Admin",
+                          description: "Request admin access",
+                        },
+                      ].map((role) => (
+                        <label
+                          key={role.value}
+                          className="flex cursor-pointer items-start gap-2 rounded-lg border border-white/10 bg-white/[0.035] p-3 transition-colors has-checked:border-[#766bff]/70 has-checked:bg-[#766bff]/10"
+                        >
+                          <input
+                            type="radio"
+                            name="requestedRole"
+                            value={role.value}
+                            defaultChecked={role.value === "seeker"}
+                            className="mt-0.5 size-3.5 shrink-0 accent-[#766bff]"
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-xs font-medium text-white/85">
+                              {role.label}
+                            </span>
+                            <span className="mt-1 block text-[10px] leading-4 text-white/45">
+                              {role.description}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-[11px] leading-4 text-white/40">
+                      Admin access requires approval and is not granted during
+                      public sign-up.
+                    </p>
+                  </fieldset>
+                )}
+
                 {isSignUp && (
                   <div className="space-y-2">
                     <label
@@ -243,9 +332,14 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
 
                 <Button
                   type="submit"
+                  disabled={isSubmitting}
                   className="h-11 w-full rounded-lg bg-[#6657f5] text-sm text-white shadow-[0_0_24px_rgba(102,87,245,0.2)] hover:bg-[#786bff]"
                 >
-                  {isSignUp ? "Create account" : "Sign in"}
+                  {isSubmitting
+                    ? "Please wait..."
+                    : isSignUp
+                      ? "Create account"
+                      : "Sign in"}
                   <ArrowRight aria-hidden="true" className="size-4" />
                 </Button>
 
