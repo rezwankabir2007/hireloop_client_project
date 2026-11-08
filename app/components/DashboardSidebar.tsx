@@ -18,6 +18,7 @@ import {
   CreditCard,
   FileText,
   Home,
+  Plus,
   Search,
   Settings,
   Users,
@@ -35,9 +36,24 @@ type MenuItem = {
 
 const menuItemByRole: Record<DashboardRole, MenuItem[]> = {
   seeker: [
-    { id: "dashboard", name: "Dashboard", url: "/dashboard/seeker", icon: Home },
-    { id: "jobs", name: "Browse Jobs", url: "/dashboard/seeker/jobs", icon: Search },
-    { id: "saved", name: "Saved Jobs", url: "/dashboard/seeker/saved", icon: Bookmark },
+    {
+      id: "dashboard",
+      name: "Dashboard",
+      url: "/dashboard/seeker",
+      icon: Home,
+    },
+    {
+      id: "jobs",
+      name: "Browse Jobs",
+      url: "/dashboard/seeker/jobs",
+      icon: Search,
+    },
+    {
+      id: "saved",
+      name: "Saved Jobs",
+      url: "/dashboard/seeker/saved",
+      icon: Bookmark,
+    },
     {
       id: "applications",
       name: "My Applications",
@@ -75,6 +91,12 @@ const menuItemByRole: Record<DashboardRole, MenuItem[]> = {
       name: "Manage Jobs",
       url: "/dashboard/recruiter/jobs",
       icon: BriefcaseBusiness,
+    },
+    {
+      id: "add-job",
+      name: "Add Job",
+      url: "/dashboard/recruiter/jobs/new",
+      icon: Plus,
     },
     {
       id: "billing",

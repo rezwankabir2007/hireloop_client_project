@@ -1,114 +1,53 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { deleteJob as deleteJobRequest, getJobs } from "@/lib/api/jobs"
 import type { JobFormData } from "@/lib/types/jobs"
 import {
   BriefcaseBusiness,
   CalendarDays,
+  Eye,
   MapPin,
+  Pencil,
   Plus,
   Search,
   Trash2,
   Users,
 } from "lucide-react"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useEffect, useMemo, useState } from "react"
 
 type JobStatus = "Active" | "Closed" | "Draft"
 
 type ManagedJob = JobFormData & {
-  id: string
+  _id: string
   status: JobStatus
   applicants: number
   postedAt: string
 }
 
-const initialJobs: ManagedJob[] = [
-  {
-    id: "job-1",
-    title: "Senior Product Designer",
-    category: "Design",
-    type: "full-time",
-    location: "Dhaka, Bangladesh",
-    remote: false,
-    salaryMin: "90000",
-    salaryMax: "130000",
-    currency: "BDT",
-    deadline: "2026-12-15",
-    responsibilities: "Lead product design from research through delivery.",
-    requirements: "5+ years of product design experience.",
-    benefits: "Health coverage and flexible hours.",
-    status: "Active",
-    applicants: 24,
-    postedAt: "2026-11-02",
-  },
-  {
-    id: "job-2",
-    title: "Frontend Engineer",
-    category: "Engineering",
-    type: "full-time",
-    location: "Remote",
-    remote: true,
-    salaryMin: "5000",
-    salaryMax: "7500",
-    currency: "USD",
-    deadline: "2026-12-20",
-    responsibilities: "Build and maintain accessible web experiences.",
-    requirements: "Experience with React and TypeScript.",
-    benefits: "Remote-first team and learning budget.",
-    status: "Active",
-    applicants: 38,
-    postedAt: "2026-10-28",
-  },
-  {
-    id: "job-3",
-    title: "Talent Acquisition Associate",
-    category: "Human Resources",
-    type: "contract",
-    location: "Dhaka, Bangladesh",
-    remote: false,
-    salaryMin: "45000",
-    salaryMax: "65000",
-    currency: "BDT",
-    deadline: "2026-11-30",
-    responsibilities: "Coordinate interviews and support hiring teams.",
-    requirements: "Strong communication and organizational skills.",
-    benefits: "",
-    status: "Closed",
-    applicants: 17,
-    postedAt: "2026-10-10",
-  },
-  {
-    id: "job-4",
-    title: "Marketing Intern",
-    category: "Marketing",
-    type: "internship",
-    location: "Chattogram, Bangladesh",
-    remote: false,
-    salaryMin: "12000",
-    salaryMax: "18000",
-    currency: "BDT",
-    deadline: "2026-12-01",
-    responsibilities: "Help create content and support marketing campaigns.",
-    requirements: "Interest in digital marketing and social media.",
-    benefits: "Mentorship and hands-on experience.",
-    status: "Draft",
-    applicants: 0,
-    postedAt: "2026-11-05",
-  },
-]
-
 const activeJobLimit = 10
 
+// সুরক্ষিত formatDate ফাংশন (Invalid Date এড়ানোর জন্য)
 function formatDate(date: string) {
+  if (!date) return "N/A"
+
+  const parsedDate = new Date(date.includes("T") ? date : `${date}T00:00:00Z`)
+
+  if (isNaN(parsedDate.getTime())) {
+    return "N/A"
+  }
+
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00Z`))
+  }).format(parsedDate)
 }
 
 function formatJobType(type: string) {
+  if (!type) return ""
   return type
     .split("-")
     .map((word) => word[0].toUpperCase() + word.slice(1))
@@ -133,12 +72,35 @@ function JobStatusBadge({ status }: { status: JobStatus }) {
 }
 
 export default function ManageJobsPage() {
-  const [jobs, setJobs] = useState(initialJobs)
+  const router = useRouter()
+  const [jobs, setJobs] = useState<ManagedJob[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<JobStatus | "All">("All")
+  const [deleteTarget, setDeleteTarget] = useState<ManagedJob | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
+
+  useEffect(() => {
+    async function fetchJobs() {
+      try {
+        const data = await getJobs()
+        setJobs(data)
+      } catch (error) {
+        console.error("Failed to fetch jobs:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchJobs()
+  }, [])
 
   const activeJobs = jobs.filter((job) => job.status === "Active").length
-  const totalApplicants = jobs.reduce((total, job) => total + job.applicants, 0)
+  const totalApplicants = jobs.reduce(
+    (total, job) => total + (job.applicants || 0),
+    0
+  )
+
   const filteredJobs = useMemo(() => {
     const query = search.trim().toLowerCase()
 
@@ -146,9 +108,10 @@ export default function ManageJobsPage() {
       const matchesSearch =
         !query ||
         [job.title, job.category, job.type, job.location].some((value) =>
-          value.toLowerCase().includes(query)
+          value?.toLowerCase().includes(query)
         )
-      const matchesStatus = statusFilter === "All" || job.status === statusFilter
+      const matchesStatus =
+        statusFilter === "All" || job.status === statusFilter
 
       return matchesSearch && matchesStatus
     })
@@ -156,17 +119,29 @@ export default function ManageJobsPage() {
 
   function updateJobStatus(jobId: string, status: JobStatus) {
     setJobs((currentJobs) =>
-      currentJobs.map((job) => (job.id === jobId ? { ...job, status } : job))
+      currentJobs.map((job) => (job._id === jobId ? { ...job, status } : job))
     )
   }
 
-  function deleteJob(jobId: string) {
-    const job = jobs.find((item) => item.id === jobId)
-    if (!job || !window.confirm(`Delete “${job.title}”? This cannot be undone.`)) {
-      return
-    }
+  async function confirmDeleteJob() {
+    if (!deleteTarget) return
 
-    setJobs((currentJobs) => currentJobs.filter((item) => item.id !== jobId))
+    setDeleting(true)
+    setDeleteError("")
+
+    try {
+      await deleteJobRequest(deleteTarget._id)
+      setJobs((currentJobs) =>
+        currentJobs.filter((job) => job._id !== deleteTarget._id)
+      )
+      setDeleteTarget(null)
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : "Failed to delete job"
+      )
+    } finally {
+      setDeleting(false)
+    }
   }
 
   function getStatusAction(job: ManagedJob) {
@@ -179,19 +154,27 @@ export default function ManageJobsPage() {
     return { label: "Reopen", nextStatus: "Active" as const }
   }
 
+  if (loading) {
+    return <div className="p-6 text-center">Loading jobs...</div>
+  }
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-primary">Recruiter workspace</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Manage jobs</h1>
+          <p className="text-sm font-medium text-primary">
+            Recruiter workspace
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+            Manage jobs
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Keep track of your job posts and applicants in one place.
           </p>
         </div>
         <Button
-          render={<Link href="/dashboard/recruiter/jobs/new" />}
           disabled={activeJobs >= activeJobLimit}
+          onClick={() => router.push("/dashboard/recruiter/jobs/new")}
         >
           <Plus data-icon="inline-start" />
           Post a job
@@ -231,7 +214,8 @@ export default function ManageJobsPage() {
             </p>
           </div>
           <p className="text-sm font-medium">
-            {activeJobs} <span className="text-muted-foreground">/ {activeJobLimit}</span>
+            {activeJobs}{" "}
+            <span className="text-muted-foreground">/ {activeJobLimit}</span>
           </p>
         </div>
         <div
@@ -322,7 +306,10 @@ export default function ManageJobsPage() {
                     <th scope="col" className="px-4 py-3 font-medium">
                       Date posted
                     </th>
-                    <th scope="col" className="px-5 py-3 text-right font-medium">
+                    <th
+                      scope="col"
+                      className="px-5 py-3 text-right font-medium"
+                    >
                       Actions
                     </th>
                   </tr>
@@ -331,9 +318,14 @@ export default function ManageJobsPage() {
                   {filteredJobs.map((job) => {
                     const statusAction = getStatusAction(job)
                     return (
-                      <tr key={job.id} className="transition-colors hover:bg-muted/20">
+                      <tr
+                        key={job._id}
+                        className="transition-colors hover:bg-muted/20"
+                      >
                         <th scope="row" className="px-5 py-4 font-normal">
-                          <p className="font-medium text-foreground">{job.title}</p>
+                          <p className="font-medium text-foreground">
+                            {job.title}
+                          </p>
                           <p className="mt-1 text-xs text-muted-foreground">
                             {job.category} · {formatJobType(job.type)}
                           </p>
@@ -353,16 +345,45 @@ export default function ManageJobsPage() {
                               variant="outline"
                               size="sm"
                               onClick={() =>
-                                updateJobStatus(job.id, statusAction.nextStatus)
+                                updateJobStatus(
+                                  job._id,
+                                  statusAction.nextStatus
+                                )
                               }
                             >
                               {statusAction.label}
                             </Button>
+                            <Link
+                              href={`/dashboard/recruiter/jobs/${encodeURIComponent(job._id)}`}
+                              aria-label={`View ${job.title}`}
+                              title="View job"
+                              className={buttonVariants({
+                                variant: "ghost",
+                                size: "icon-sm",
+                              })}
+                            >
+                              <Eye className="size-4" />
+                            </Link>
+                            <Link
+                              href={`/dashboard/recruiter/jobs/${encodeURIComponent(job._id)}/edit`}
+                              aria-label={`Edit ${job.title}`}
+                              title="Edit job"
+                              className={buttonVariants({
+                                variant: "ghost",
+                                size: "icon-sm",
+                              })}
+                            >
+                              <Pencil className="size-4" />
+                            </Link>
                             <Button
                               variant="ghost"
                               size="icon-sm"
                               aria-label={`Delete ${job.title}`}
-                              onClick={() => deleteJob(job.id)}
+                              title="Delete job"
+                              onClick={() => {
+                                setDeleteError("")
+                                setDeleteTarget(job)
+                              }}
                             >
                               <Trash2 className="size-4" />
                             </Button>
@@ -379,7 +400,7 @@ export default function ManageJobsPage() {
               {filteredJobs.map((job) => {
                 const statusAction = getStatusAction(job)
                 return (
-                  <li key={job.id} className="space-y-4 p-4">
+                  <li key={job._id} className="space-y-4 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h3 className="font-medium">{job.title}</h3>
@@ -408,16 +429,42 @@ export default function ManageJobsPage() {
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          updateJobStatus(job.id, statusAction.nextStatus)
+                          updateJobStatus(job._id, statusAction.nextStatus)
                         }
                       >
                         {statusAction.label}
                       </Button>
+                      <Link
+                        href={`/dashboard/recruiter/jobs/${encodeURIComponent(job._id)}`}
+                        aria-label={`View ${job.title}`}
+                        title="View job"
+                        className={buttonVariants({
+                          variant: "ghost",
+                          size: "icon-sm",
+                        })}
+                      >
+                        <Eye className="size-4" />
+                      </Link>
+                      <Link
+                        href={`/dashboard/recruiter/jobs/${encodeURIComponent(job._id)}/edit`}
+                        aria-label={`Edit ${job.title}`}
+                        title="Edit job"
+                        className={buttonVariants({
+                          variant: "ghost",
+                          size: "icon-sm",
+                        })}
+                      >
+                        <Pencil className="size-4" />
+                      </Link>
                       <Button
                         variant="ghost"
                         size="icon-sm"
                         aria-label={`Delete ${job.title}`}
-                        onClick={() => deleteJob(job.id)}
+                        title="Delete job"
+                        onClick={() => {
+                          setDeleteError("")
+                          setDeleteTarget(job)
+                        }}
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -429,6 +476,52 @@ export default function ManageJobsPage() {
           </>
         )}
       </section>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-job-title"
+            aria-describedby="delete-job-description"
+            className="w-full max-w-md space-y-4 rounded-xl border bg-card p-6 shadow-lg"
+          >
+            <div className="space-y-2">
+              <h2 id="delete-job-title" className="text-lg font-semibold">
+                Delete job?
+              </h2>
+              <p
+                id="delete-job-description"
+                className="text-sm text-muted-foreground"
+              >
+                Are you sure you want to delete “{deleteTarget.title}”? This
+                action cannot be undone.
+              </p>
+            </div>
+            {deleteError && (
+              <p role="alert" className="text-sm text-destructive">
+                {deleteError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleting}
+                onClick={confirmDeleteJob}
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }
