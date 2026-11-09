@@ -2,101 +2,134 @@
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import type { JobFormData } from "@/lib/types/jobs"
+import { jobFormStyles } from "@/components/jobs/job-form-styles"
 import { createJob } from "@/lib/actions/jobs"
+import { getJobFormData } from "@/lib/forms/jobs"
 import Link from "next/link"
-import { useState, useEffect, type FormEvent } from "react"
-
-function getTextField(formData: FormData, name: string) {
-  const value = formData.get(name)
-  return typeof value === "string" ? value : ""
-}
+import { useState, type FormEvent } from "react"
+import { toast } from "react-toastify"
+import { useRouter } from "next/navigation"
 
 export default function NewJobPage() {
-  const [submittedJob, setSubmittedJob] = useState<JobFormData | null>(null)
+  const router = useRouter()
 
-  // State update hole automatic console-e show korbe
-  useEffect(() => {
-    if (submittedJob) {
-      console.log("Submitted Job State Updated:", submittedJob)
-    }
-  }, [submittedJob])
+  // Submit button loading state
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Form submit handler
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const formData = new FormData(event.currentTarget)
-    const jobData: JobFormData = {
-      title: getTextField(formData, "title"),
-      category: getTextField(formData, "category"),
-      type: getTextField(formData, "type"),
-      location: getTextField(formData, "location"),
-      remote: formData.has("remote"),
-      salaryMin: getTextField(formData, "salaryMin"),
-      salaryMax: getTextField(formData, "salaryMax"),
-      currency: getTextField(formData, "currency"),
-      deadline: getTextField(formData, "deadline"),
-      responsibilities: getTextField(formData, "responsibilities"),
-      requirements: getTextField(formData, "requirements"),
-      benefits: getTextField(formData, "benefits"),
-    }
+    if (isSubmitting) return
+
+    const form = event.currentTarget
+    const formData = new FormData(form)
+
+    const jobData = getJobFormData(formData)
+
+    setIsSubmitting(true)
+    const toastId = toast.loading("Creating job...")
 
     try {
       const result = await createJob(jobData)
+
       console.log("createJob result:", result)
+
+      // শুধু insertedId পাওয়া গেলেই ডানপাশের জব লিস্ট পেজে রিডাইরেক্ট হবে
+      if (result?.insertedId) {
+        toast.update(toastId, {
+          render: "Job created successfully!",
+          type: "success",
+          isLoading: false,
+          autoClose: 2000,
+        })
+
+        // ডানপাশের পেজে রিডাইরেক্ট করার কোড
+        router.push("/dashboard/recruiter/jobs")
+        router.refresh()
+      } else {
+        toast.update(toastId, {
+          render: "Failed to create job!",
+          type: "error",
+          isLoading: false,
+          autoClose: 3000,
+        })
+        setIsSubmitting(false)
+      }
     } catch (error) {
       console.error("Error creating job:", error)
-    }
 
-    setSubmittedJob(jobData)
+      toast.update(toastId, {
+        render: "Something went wrong!",
+        type: "error",
+        isLoading: false,
+        autoClose: 3000,
+      })
+      setIsSubmitting(false)
+    }
   }
 
-  const fieldClassName =
-    "flex flex-col gap-2 text-sm font-medium text-foreground"
-  const textareaClassName =
-    "min-h-28 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm font-normal outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-  const selectClassName =
-    "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 p-4 sm:p-6">
+    <div className={jobFormStyles.page}>
+      {/* Page Header */}
       <div className="space-y-3">
         <Link
           href="/dashboard/recruiter/jobs"
-          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className={jobFormStyles.backLink}
         >
           &larr; Back to jobs
         </Link>
+
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Post a new job</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className={jobFormStyles.pageTitle}>Post a new job</h1>
+
+          <p className={jobFormStyles.pageDescription}>
             Add the details candidates need to learn about this opportunity.
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <section className="space-y-5 rounded-xl border bg-card p-5 sm:p-6">
+      {/* Job Form */}
+      <form onSubmit={handleSubmit} className={jobFormStyles.form}>
+        {/* Job Information Section */}
+        <section className={jobFormStyles.section}>
           <div>
-            <h2 className="font-semibold">Job information</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h2 className={jobFormStyles.sectionTitle}>Job information</h2>
+
+            <p className={jobFormStyles.sectionDescription}>
               Start with the title and where the role is based.
             </p>
           </div>
 
-          <label className={fieldClassName}>
+          {/* Job Title */}
+          <label className={jobFormStyles.field}>
             Job title
-            <Input name="title" placeholder="e.g. Product Designer" required />
+            <Input
+              name="title"
+              placeholder="e.g. Product Designer"
+              required
+            />
           </label>
 
+          {/* Category and Job Type */}
           <div className="grid gap-5 sm:grid-cols-2">
-            <label className={fieldClassName}>
+            <label className={jobFormStyles.field}>
               Category
-              <Input name="category" placeholder="e.g. Design" required />
+              <Input
+                name="category"
+                placeholder="e.g. Design"
+                required
+              />
             </label>
-            <label className={fieldClassName}>
+
+            <label className={jobFormStyles.field}>
               Job type
-              <select name="type" className={selectClassName} defaultValue="" required>
+              <select
+                name="type"
+                className={jobFormStyles.select}
+                defaultValue=""
+                required
+              >
                 <option value="" disabled>
                   Select a job type
                 </option>
@@ -108,12 +141,18 @@ export default function NewJobPage() {
             </label>
           </div>
 
+          {/* Location and Remote */}
           <div className="grid gap-5 sm:grid-cols-2">
-            <label className={fieldClassName}>
+            <label className={jobFormStyles.field}>
               Location
-              <Input name="location" placeholder="e.g. Dhaka, Bangladesh" required />
+              <Input
+                name="location"
+                placeholder="e.g. Dhaka, Bangladesh"
+                required
+              />
             </label>
-            <label className="flex items-center gap-2 self-end pb-2 text-sm">
+
+            <label className={jobFormStyles.remoteField}>
               <input
                 name="remote"
                 type="checkbox"
@@ -124,16 +163,19 @@ export default function NewJobPage() {
           </div>
         </section>
 
-        <section className="space-y-5 rounded-xl border bg-card p-5 sm:p-6">
+        {/* Salary and Deadline Section */}
+        <section className={jobFormStyles.section}>
           <div>
-            <h2 className="font-semibold">Salary and deadline</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h2 className={jobFormStyles.sectionTitle}>Salary and deadline</h2>
+
+            <p className={jobFormStyles.sectionDescription}>
               Share a salary range and the last day to apply.
             </p>
           </div>
 
+          {/* Salary Fields */}
           <div className="grid gap-5 sm:grid-cols-3">
-            <label className={fieldClassName}>
+            <label className={jobFormStyles.field}>
               Minimum salary
               <Input
                 name="salaryMin"
@@ -143,7 +185,8 @@ export default function NewJobPage() {
                 required
               />
             </label>
-            <label className={fieldClassName}>
+
+            <label className={jobFormStyles.field}>
               Maximum salary
               <Input
                 name="salaryMax"
@@ -153,11 +196,12 @@ export default function NewJobPage() {
                 required
               />
             </label>
-            <label className={fieldClassName}>
+
+            <label className={jobFormStyles.field}>
               Currency
               <select
                 name="currency"
-                className={selectClassName}
+                className={jobFormStyles.select}
                 defaultValue="USD"
                 required
               >
@@ -169,78 +213,74 @@ export default function NewJobPage() {
             </label>
           </div>
 
-          <label className={`${fieldClassName} max-w-sm`}>
+          {/* Application Deadline */}
+          <label className={`${jobFormStyles.field} max-w-sm`}>
             Application deadline
-            <Input name="deadline" type="date" required />
+            <Input
+              name="deadline"
+              type="date"
+              required
+            />
           </label>
         </section>
 
-        <section className="space-y-5 rounded-xl border bg-card p-5 sm:p-6">
+        {/* Job Description Section */}
+        <section className={jobFormStyles.section}>
           <div>
-            <h2 className="font-semibold">Job description</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h2 className={jobFormStyles.sectionTitle}>Job description</h2>
+
+            <p className={jobFormStyles.sectionDescription}>
               Describe the role, qualifications, and what you offer.
             </p>
           </div>
 
-          <label className={fieldClassName}>
+          {/* Responsibilities */}
+          <label className={jobFormStyles.field}>
             Responsibilities
             <textarea
               name="responsibilities"
-              className={textareaClassName}
+              className={jobFormStyles.textarea}
               placeholder="What will the successful candidate do?"
               required
             />
           </label>
-          <label className={fieldClassName}>
+
+          {/* Requirements */}
+          <label className={jobFormStyles.field}>
             Requirements
             <textarea
               name="requirements"
-              className={textareaClassName}
+              className={jobFormStyles.textarea}
               placeholder="What skills or experience are required?"
               required
             />
           </label>
-          <label className={fieldClassName}>
-            Benefits <span className="font-normal text-muted-foreground">(optional)</span>
+
+          {/* Benefits */}
+          <label className={jobFormStyles.field}>
+            Benefits
+            <span className="font-normal text-muted-foreground">
+              (optional)
+            </span>
             <textarea
               name="benefits"
-              className={textareaClassName}
+              className={jobFormStyles.textarea}
               placeholder="Share benefits or perks for this role"
             />
           </label>
         </section>
 
-        <div className="flex justify-end">
-          <Button type="submit" size="lg">
-            Preview job
+        {/* Submit Button */}
+        <div className={jobFormStyles.actions}>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Creating job..." : "Post job"}
           </Button>
         </div>
       </form>
-
-      {submittedJob && (
-        <section
-          aria-live="polite"
-          className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-5"
-        >
-          <h2 className="text-lg font-semibold">{submittedJob.title}</h2>
-          <p className="text-sm text-muted-foreground">
-            {submittedJob.category} · {submittedJob.type} ·{" "}
-            {submittedJob.remote ? "Remote" : submittedJob.location}
-          </p>
-          <p className="text-sm">
-            Salary: {submittedJob.currency} {submittedJob.salaryMin} –{" "}
-            {submittedJob.salaryMax}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Apply by {submittedJob.deadline}
-          </p>
-          <p className="pt-2 text-sm text-muted-foreground">
-            This preview is in the browser only; the job has not been saved or
-            published.
-          </p>
-        </section>
-      )}
     </div>
   )
 }

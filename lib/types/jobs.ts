@@ -12,3 +12,5 @@ export type JobFormData = {
   requirements: string
   benefits: string
 }
+
+export type JobRecord = JobFormData & { _id: string }

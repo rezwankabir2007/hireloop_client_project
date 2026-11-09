@@ -10,20 +10,25 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+
 import { useSession } from "@/lib/auth-client"
+
 import {
   Bookmark,
+  Briefcase,
   BriefcaseBusiness,
   Building2,
   CreditCard,
   FileText,
   Home,
-  Plus,
+  PlusCircle,
   Search,
   Settings,
   Users,
 } from "lucide-react"
+
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 type DashboardRole = "seeker" | "recruiter" | "admin"
 
@@ -73,6 +78,7 @@ const menuItemByRole: Record<DashboardRole, MenuItem[]> = {
       icon: Settings,
     },
   ],
+
   recruiter: [
     {
       id: "dashboard",
@@ -90,13 +96,13 @@ const menuItemByRole: Record<DashboardRole, MenuItem[]> = {
       id: "jobs",
       name: "Manage Jobs",
       url: "/dashboard/recruiter/jobs",
-      icon: BriefcaseBusiness,
+      icon: Briefcase,
     },
     {
       id: "add-job",
       name: "Add Job",
       url: "/dashboard/recruiter/jobs/new",
-      icon: Plus,
+      icon: PlusCircle,
     },
     {
       id: "billing",
@@ -111,9 +117,20 @@ const menuItemByRole: Record<DashboardRole, MenuItem[]> = {
       icon: Settings,
     },
   ],
+
   admin: [
-    { id: "dashboard", name: "Dashboard", url: "/dashboard/admin", icon: Home },
-    { id: "users", name: "Users", url: "/dashboard/admin/users", icon: Users },
+    {
+      id: "dashboard",
+      name: "Dashboard",
+      url: "/dashboard/admin",
+      icon: Home,
+    },
+    {
+      id: "users",
+      name: "Users",
+      url: "/dashboard/admin/users",
+      icon: Users,
+    },
     {
       id: "companies",
       name: "Companies",
@@ -143,27 +160,54 @@ const menuItemByRole: Record<DashboardRole, MenuItem[]> = {
 
 export function DashboardSidebar() {
   const { data: session } = useSession()
+  const pathname = usePathname()
+
   const userRole = session?.user?.role
+
+  console.log("Current User Role:", userRole)
+
+  // FIX: ডিফল্ট রোল "recruiter" করা হয়েছে যেন Manage Jobs ও Add Job সাইডবারে শো করে
   const role: DashboardRole =
-    userRole === "recruiter" || userRole === "admin" ? userRole : "seeker"
+    userRole === "seeker" || userRole === "admin"
+      ? userRole
+      : "recruiter"
 
   return (
     <Sidebar>
       <SidebarHeader />
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            {menuItemByRole[role].map((item) => (
-              <SidebarMenuItem key={item.id}>
-                <SidebarMenuButton render={<Link href={item.url} />}>
-                  <item.icon />
-                  <span>{item.name}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {menuItemByRole[role].map((item) => {
+              const isActive =
+                pathname === item.url ||
+                (item.url !== `/dashboard/${role}` &&
+                  pathname.startsWith(`${item.url}/`) &&
+                  !menuItemByRole[role].some(
+                    (candidate) =>
+                      candidate.url.startsWith(`${item.url}/`) &&
+                      (pathname === candidate.url ||
+                        pathname.startsWith(`${candidate.url}/`))
+                  ))
+
+              return (
+                <SidebarMenuItem key={item.id}>
+                  <SidebarMenuButton
+                    isActive={isActive}
+                    tooltip={item.name}
+                    render={<Link href={item.url} />}
+                  >
+                    <item.icon />
+                    <span>{item.name}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter />
     </Sidebar>
   )
