@@ -1,19 +1,22 @@
-'use client'
+"use client"
 
 import { AuthForm, AuthFormData } from "@/components/auth/auth-form"
 import { authClient } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { Suspense } from "react";
 
-export default function SignInPage() {
+function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirectTo") ?? "/";
 
   const handleSignIn = async (data: AuthFormData) => {
-    const { data: SignInResponse, error } = await authClient.signIn.email({
+    const { error } = await authClient.signIn.email({
       email: data.email as string, 
       password: data.password, 
       rememberMe: true, 
-      callbackURL: "/", 
+      callbackURL: redirectTo, // Better-auth এর নিজস্ব রিডাইরেক্ট
     });
 
     if (error) {
@@ -22,9 +25,17 @@ export default function SignInPage() {
     }
 
     toast.success("Signed in successfully!");
-    router.push("/");
+    router.push(redirectTo);
     router.refresh();
-  }
+  };
 
-  return <AuthForm mode="sign-in" onSubmit={handleSignIn} />
+  return <AuthForm mode="sign-in" onSubmit={handleSignIn} />;
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center min-h-screen">Loading...</div>}>
+      <SignInForm />
+    </Suspense>
+  );
 }

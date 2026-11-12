@@ -6,13 +6,13 @@ import {
   type JobFiltersState,
 } from "@/components/jobs/job-filters"
 import type { JobRecord } from "@/lib/types/jobs"
-import { Search } from "lucide-react"
+import { Search, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 
 type BrowseJobsContentProps = {
-  jobs: JobRecord[]
-  categories: string[]
+  initialJobs?: JobRecord[]
+  categories?: string[]
 }
 
 const initialFilters: JobFiltersState = {
@@ -32,13 +32,44 @@ function toSalaryNumber(value: string) {
 }
 
 export function BrowseJobsContent({
-  jobs,
-  categories,
+  initialJobs = [],
+  categories = [],
 }: BrowseJobsContentProps) {
   const router = useRouter()
+  const [jobs, setJobs] = useState<JobRecord[]>(initialJobs)
+  const [loading, setLoading] = useState<boolean>(initialJobs.length === 0)
+  const [error, setError] = useState<string | null>(null)
+
   const [searchInput, setSearchInput] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [filters, setFilters] = useState(initialFilters)
+
+  // API Call - Fetch Jobs from Local Server
+  useEffect(() => {
+    async function fetchJobs() {
+      try {
+        setLoading(true)
+        setError(null)
+        const response = await fetch("http://localhost:5000/jobs")
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch jobs data")
+        }
+
+        const data = await response.json()
+        // API response Structure handler
+        const fetchedJobs = Array.isArray(data) ? data : data.jobs || []
+        setJobs(fetchedJobs)
+      } catch (err) {
+        console.error("Error loading jobs:", err)
+        setError("Could not load jobs from server.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchJobs()
+  }, [])
 
   const filteredJobs = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase()
@@ -53,7 +84,7 @@ export function BrowseJobsContent({
       const matchesSearch =
         !query ||
         [job.title, job.category, job.location]
-          .some((value) => value.toLocaleLowerCase().includes(query))
+          .some((value) => value?.toLocaleLowerCase().includes(query))
 
       const matchesCategory =
         !filters.category || filters.category === job.category
@@ -177,7 +208,23 @@ export function BrowseJobsContent({
             )}
           </div>
 
-          {filteredJobs.length > 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-card px-6 py-16 text-center">
+              <Loader2 className="size-8 animate-spin text-violet-500" />
+              <p className="mt-2 text-sm text-muted-foreground">Loading jobs from server...</p>
+            </div>
+          ) : error ? (
+            <div className="rounded-2xl border border-dashed border-red-500/50 bg-card px-6 py-16 text-center text-red-500">
+              <p className="font-semibold">{error}</p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="mt-4 text-sm font-semibold text-violet-500 hover:text-violet-400"
+              >
+                Retry
+              </button>
+            </div>
+          ) : filteredJobs.length > 0 ? (
             <div className="grid gap-4 xl:grid-cols-2">
               {filteredJobs.map((job) => (
                 <JobCard

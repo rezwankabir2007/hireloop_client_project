@@ -16,7 +16,7 @@ export default function Navbar() {
 
   // কম্পোনেন্টের ভেতরে নেভিগেশন লিংক ডিফাইন করা হয়েছে যাতে সেশন পাওয়া যায়
   const navigationLinks = [
-    { label: "Browse Jobs", href: "#jobs" },
+    { label: "Browse Jobs", href: "browse-jobs" },
     { label: "Companies", href: "#companies" },
     { label: "Pricing", href: "/pricing" },
     { label: "Dashboard", href: `/dashboard/${session?.user?.role || 'seeker'}` },

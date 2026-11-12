@@ -23,7 +23,7 @@ export default async function BrowseJobsPage() {
           </p>
         </header>
 
-        <BrowseJobsContent jobs={jobs} categories={categories} />
+        <BrowseJobsContent categories={categories} />
       </div>
     </main>
   )

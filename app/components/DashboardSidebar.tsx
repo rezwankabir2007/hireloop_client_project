@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sidebar"
 
 import { useSession } from "@/lib/auth-client"
+import { resolveUserRole } from "@/lib/auth-role"
 
 import {
   Bookmark,
@@ -162,15 +163,10 @@ export function DashboardSidebar() {
   const { data: session } = useSession()
   const pathname = usePathname()
 
-  const userRole = session?.user?.role
-
-  console.log("Current User Role:", userRole)
-
-  // FIX: ডিফল্ট রোল "recruiter" করা হয়েছে যেন Manage Jobs ও Add Job সাইডবারে শো করে
-  const role: DashboardRole =
-    userRole === "seeker" || userRole === "admin"
-      ? userRole
-      : "recruiter"
+  const role: DashboardRole = resolveUserRole(
+    session?.user?.role,
+    session?.user?.requestedRole
+  )
 
   return (
     <Sidebar>
