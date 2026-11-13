@@ -1,6 +1,8 @@
 "use server"
 
+import { auth } from "@/lib/auth"
 import type { JobFormData } from "@/lib/types/jobs"
+import { headers } from "next/headers"
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
 
@@ -20,17 +22,29 @@ export const getJobs = async (query = '') => {
 }
 
 export const createJob = async (data: JobFormData) => {
+  const session = await auth.api.getSession({ headers: await headers() })
+
+  if (!session?.user) {
+    throw new Error("You must be signed in to create a job")
+  }
+
+  if (session.user.role !== "recruiter") {
+    throw new Error("Only recruiters can create jobs")
+  }
+
   const res = await fetch(`${BASE_URL}/jobs`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      ...data,
+      recruiterId: session.user.id,
+      ...(data.companyId ? { companyId: data.companyId } : {}),
+    }),
   })
 
   if (!res.ok) {
-    throw new Error("Failed to create job")
+    throw new Error(`Failed to create job (${res.status})`)
   }
-
-  return res.json()
 }

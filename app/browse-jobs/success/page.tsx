@@ -1,112 +1,134 @@
-// import { redirect } from 'next/navigation'
+import { CheckCircle2 } from "lucide-react"
+import Link from "next/link"
+import { notFound, redirect } from "next/navigation"
 
-// import { stripe } from '@/lib/stripe'
-// import { checkoutVerify } from '@/lib/actions/payments'
-
-// export default async function PaymentSuccessPage({
-//   searchParams
-// }: {
-//   searchParams: Promise<{ session_id?: string }>
-// }) {
-//   const { session_id } = await searchParams
-
-//   if (!session_id)
-//     throw new Error('Please provide a valid session_id (`cs_test_...`)')
-
-//   const {
-//     status,
-//     payment_status,
-//     customer_email,
-//     metadata,
-//     payment_intent,
-//   } = await stripe.checkout.sessions.retrieve(session_id, {
-//     expand: ['line_items', 'payment_intent']
-//   })
-//   const customerEmail = customer_email
-
-//   if (status === 'open') {
-//     return redirect('/')
-//   }
-
-//   if (status === 'complete' && payment_status === 'paid') {
-
-// console.log(  status,
-//     payment_status,
-//     customer_email,
-//     metadata,
-//     payment_intent,);
-
-
-// const result = await checkoutVerify(session_id)
-// console.log({result});
-
-//     return (
-//       <section id="success">
-//         <p>
-//           We appreciate your business! A confirmation email will be sent to{' '}
-//           . If you have any questions, please email{' '}
-//           <a href="mailto:orders@example.com">orders@example.com</a>.
-//         </p>
-//       </section>
-//     )
-//   }
-// }
-
-
-import { redirect } from 'next/navigation'
-
-import { stripe } from '@/lib/stripe'
-import { checkoutVerify } from '@/lib/actions/payments'
+import { buttonVariants } from "@/components/ui/button"
+import { checkoutVerify } from "@/lib/actions/payments"
+import { stripe } from "@/lib/stripe"
 
 export default async function PaymentSuccessPage({
-  searchParams
+  searchParams,
 }: {
   searchParams: Promise<{ session_id?: string }>
 }) {
-  const { session_id } = await searchParams
+  const { session_id: sessionId } = await searchParams
 
-  if (!session_id)
-    throw new Error('Please provide a valid session_id (`cs_test_...`)')
+  if (!sessionId) notFound()
 
-  const {
-    status,
-    payment_status,
-    customer_email,
-    metadata,
-    payment_intent,
-  } = await stripe.checkout.sessions.retrieve(session_id, {
-    expand: ['line_items', 'payment_intent']
+  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ["payment_intent"],
   })
-  const customerEmail = customer_email
 
-  if (status === 'open') {
-    return redirect('/')
+  if (session.status === "open") redirect("/pricing")
+  if (session.status !== "complete" || session.payment_status !== "paid") {
+    redirect("/pricing")
   }
 
-  if (status === 'complete' && payment_status === 'paid') {
+  await checkoutVerify(sessionId)
 
-    console.log( 
-      status,
-      payment_status,
-      customer_email,
-      metadata,
-      payment_intent
-    );
+  const transactionId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id
+  const currency = session.currency?.toUpperCase()
+  const amountFormatter = currency
+    ? new Intl.NumberFormat("en-US", { style: "currency", currency })
+    : null
+  const fractionDigits =
+    amountFormatter?.resolvedOptions().maximumFractionDigits ?? 2
+  const totalPaid =
+    session.amount_total !== null && amountFormatter
+      ? amountFormatter.format(
+          session.amount_total / 10 ** fractionDigits,
+        )
+      : null
+  const checkoutDate = new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+  }).format(new Date(session.created * 1000))
+  const customerEmail =
+    session.customer_details?.email ?? session.customer_email
 
-    const result = await checkoutVerify(session_id)
-    console.log({ result });
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-12">
+      <div className="w-full max-w-2xl">
+        <section
+          aria-labelledby="payment-success-title"
+          className="overflow-hidden rounded-3xl border bg-card shadow-xl shadow-foreground/5"
+        >
+          <header className="border-b bg-emerald-500/5 px-6 py-10 text-center sm:px-10">
+            <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+              <CheckCircle2 aria-hidden="true" className="size-9" />
+            </div>
+            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+              Payment confirmed
+            </p>
+            <h1
+              id="payment-success-title"
+              className="text-3xl font-bold tracking-tight sm:text-4xl"
+            >
+              Thank you for your purchase
+            </h1>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">
+              Your payment was successful. Keep this page for your transaction
+              details.
+            </p>
+          </header>
 
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-10">
-        <section id="success" className="w-full max-w-md rounded-2xl border bg-card p-8 text-center shadow-lg space-y-4">
-          <h1 className="text-2xl font-bold tracking-tight text-emerald-600">Payment Successful!</h1>
-          <p className="text-sm text-muted-foreground">
-            We appreciate your business! A confirmation email will be sent to{' '}
-            <span className="font-medium text-foreground">{customerEmail || "your email"}</span>. If you have any questions, please email{' '}
-            <a href="mailto:orders@example.com" className="text-violet-600 underline">orders@example.com</a>.
-          </p>
+          <div className="space-y-6 p-6 sm:p-10">
+            <dl className="divide-y rounded-2xl border bg-muted/20 px-5">
+              <div className="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                <dt className="text-sm text-muted-foreground">Payment status</dt>
+                <dd className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                  Paid
+                </dd>
+              </div>
+              <div className="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                <dt className="text-sm text-muted-foreground">Total paid</dt>
+                <dd className="text-lg font-semibold">
+                  {totalPaid ?? "Unavailable"}
+                </dd>
+              </div>
+              <div className="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                <dt className="text-sm text-muted-foreground">Transaction ID</dt>
+                <dd className="break-all text-left font-mono text-sm font-medium sm:max-w-[65%] sm:text-right">
+                  {transactionId ?? "Unavailable"}
+                </dd>
+              </div>
+              <div className="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                <dt className="text-sm text-muted-foreground">Checkout date</dt>
+                <dd className="text-sm font-medium">{checkoutDate}</dd>
+              </div>
+              {customerEmail ? (
+                <div className="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                  <dt className="text-sm text-muted-foreground">
+                    Receipt email
+                  </dt>
+                  <dd className="break-all text-sm font-medium sm:text-right">
+                    {customerEmail}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+
+            <p className="text-center text-sm text-muted-foreground">
+              A receipt will be sent to your email if one was provided at
+              checkout.
+            </p>
+
+            <div className="flex justify-center">
+              <Link
+                className={buttonVariants({
+                  className:
+                    "bg-violet-600 text-white hover:bg-violet-500",
+                })}
+                href="/browse-jobs"
+              >
+                Back to browse jobs
+              </Link>
+            </div>
+          </div>
         </section>
-      </main>
-    )
-  }
+      </div>
+    </main>
+  )
 }

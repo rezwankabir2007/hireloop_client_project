@@ -1,6 +1,8 @@
 export type JobFormData = {
   title: string
   companyName?: string
+  companyId?: string
+  recruiterId:string
   category: string
   type: string
   location: string

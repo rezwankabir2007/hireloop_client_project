@@ -6,8 +6,12 @@ function getTextField(formData: FormData, name: string) {
 }
 
 export function getJobFormData(formData: FormData): JobFormData {
+  const companyId = getTextField(formData, "companyId").trim()
+
   return {
     title: getTextField(formData, "title"),
+    ...(companyId ? { companyId } : {}),
+    recruiterId: getTextField(formData, "recruiterId"),
     category: getTextField(formData, "category"),
     type: getTextField(formData, "type"),
     location: getTextField(formData, "location"),

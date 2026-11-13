@@ -88,11 +88,27 @@ export default function EditJobPage() {
       </div>
 
       <form onSubmit={handleSubmit} className={jobFormStyles.form}>
+        <input
+          type="hidden"
+          name="recruiterId"
+          value={job.recruiterId}
+        />
         <section className={jobFormStyles.section}>
           <h2 className={jobFormStyles.sectionTitle}>Job information</h2>
           <label className={jobFormStyles.field}>
             Job title
             <Input name="title" defaultValue={job.title} required />
+          </label>
+          <label className={jobFormStyles.field}>
+            Company ID{" "}
+            <span className="font-normal text-muted-foreground">
+              (optional)
+            </span>
+            <Input
+              name="companyId"
+              defaultValue={job.companyId ?? ""}
+              placeholder="Enter the company’s ID"
+            />
           </label>
           <div className="grid gap-5 sm:grid-cols-2">
             <label className={jobFormStyles.field}>

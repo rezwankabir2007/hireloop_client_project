@@ -7,6 +7,7 @@ import {
   getApplicationUsage,
 } from "@/lib/api/applications"
 import { getJobs } from "@/lib/api/jobs"
+import { getUserPremiumById } from "@/lib/api/user"
 import { resolveUserRole } from "@/lib/auth-role"
 import { useSession } from "@/lib/auth-client"
 import type { JobRecord } from "@/lib/types/jobs"
@@ -99,7 +100,6 @@ export default function BrowseJobDetailsPage({
   const { data: session } = useSession()
   const user = session?.user
 
-  // Next.js 15+ params unwrap
   const resolvedParams = use(params)
   const jobId = resolvedParams.id
 
@@ -114,7 +114,7 @@ export default function BrowseJobDetailsPage({
         const jobs: JobRecord[] = await getJobs()
         const foundJob = jobs.find((record) => record._id === jobId)
         setJob(foundJob || null)
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Failed to fetch job details:", error)
       } finally {
         setLoading(false)
@@ -156,18 +156,15 @@ export default function BrowseJobDetailsPage({
   const deadline = formatDeadline(job.deadline)
   const signInUrl = `/sign-in?redirectTo=/browse-jobs/${job._id}`
 
-  // সরাসরি API ডিল করার ফাংশন
   const handleApplyClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
 
-    // ১. ইউজার সাইন-ইন করা না থাকলে
     if (!user) {
       toast.error("Please sign in to apply for this job")
       router.push(signInUrl)
       return
     }
 
-    // ২. ইউজার Seeker না হলে
     if (resolveUserRole(user.role, user.requestedRole) !== "seeker") {
       toast.error("Only job seekers can apply for jobs.")
       return
@@ -196,8 +193,12 @@ export default function BrowseJobDetailsPage({
 
     try {
       const usage = await getApplicationUsage(user.id)
-      if (!usage.isPremium && usage.count >= FREE_APPLICATION_LIMIT) {
-        toast.info("You have reached the 10-application free limit.")
+      const premiumData = await getUserPremiumById(user.id)
+
+      const isUserPremium = Boolean(premiumData?.premium || usage?.isPremium)
+
+      if (!isUserPremium && usage.count >= FREE_APPLICATION_LIMIT) {
+        toast.info("You have reached the free application limit.")
         router.push("/pricing")
         return
       }
@@ -205,7 +206,7 @@ export default function BrowseJobDetailsPage({
       await createApplication(applicationPayload)
       toast.success("Application submitted successfully!")
       router.push("/browse-jobs")
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error submitting application:", error)
       toast.error(
         error instanceof Error

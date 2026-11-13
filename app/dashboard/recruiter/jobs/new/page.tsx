@@ -9,9 +9,11 @@ import Link from "next/link"
 import { useState, type FormEvent } from "react"
 import { toast } from "react-toastify"
 import { useRouter } from "next/navigation"
+import { useSession } from "@/lib/auth-client"
 
 export default function NewJobPage() {
   const router = useRouter()
+  const { data: session } = useSession()
 
   // Submit button loading state
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -31,36 +33,21 @@ export default function NewJobPage() {
     const toastId = toast.loading("Creating job...")
 
     try {
-      const result = await createJob(jobData)
-
-      console.log("createJob result:", result)
-
-      // শুধু insertedId পাওয়া গেলেই ডানপাশের জব লিস্ট পেজে রিডাইরেক্ট হবে
-      if (result?.insertedId) {
-        toast.update(toastId, {
-          render: "Job created successfully!",
-          type: "success",
-          isLoading: false,
-          autoClose: 2000,
-        })
-
-        // ডানপাশের পেজে রিডাইরেক্ট করার কোড
-        router.push("/dashboard/recruiter/jobs")
-        router.refresh()
-      } else {
-        toast.update(toastId, {
-          render: "Failed to create job!",
-          type: "error",
-          isLoading: false,
-          autoClose: 3000,
-        })
-        setIsSubmitting(false)
-      }
+      await createJob(jobData)
+      toast.update(toastId, {
+        render: "Job added successfully!",
+        type: "success",
+        isLoading: false,
+        autoClose: 2000,
+      })
+      router.push("/dashboard/recruiter/jobs")
+      router.refresh()
     } catch (error) {
       console.error("Error creating job:", error)
 
       toast.update(toastId, {
-        render: "Something went wrong!",
+        render:
+          error instanceof Error ? error.message : "Failed to create job.",
         type: "error",
         isLoading: false,
         autoClose: 3000,
@@ -91,6 +78,12 @@ export default function NewJobPage() {
 
       {/* Job Form */}
       <form onSubmit={handleSubmit} className={jobFormStyles.form}>
+        <input
+          type="hidden"
+          name="recruiterId"
+          value={session?.user.id ?? ""}
+        />
+
         {/* Job Information Section */}
         <section className={jobFormStyles.section}>
           <div>
@@ -108,6 +101,17 @@ export default function NewJobPage() {
               name="title"
               placeholder="e.g. Product Designer"
               required
+            />
+          </label>
+
+          <label className={jobFormStyles.field}>
+            Company ID{" "}
+            <span className="font-normal text-muted-foreground">
+              (optional)
+            </span>
+            <Input
+              name="companyId"
+              placeholder="Enter the company’s ID"
             />
           </label>
 
